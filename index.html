@@ -1,0 +1,42 @@
+<html>
+<head>
+<title>html</title>
+<meta name="viewport" content="width=device-width, user-scalable=no">
+<style>
+
+body {
+    margin: 0px;
+}
+table {
+    border-collapse: collapse;
+}
+th, td {
+    padding: 0px;
+}
+
+</style>
+</head>
+<body>
+<script src="http://code.jquery.com/jquery-2.0.3.min.js"></script>
+<script src="http://dglittle.github.io/gl519/index.js"></script>
+<script src="http://dglittle.github.io/gl519/aes.js"></script>
+<script src="http://dglittle.github.io/gl519/tab.js"></script>
+
+<script src="/utils.js"></script>
+<script>
+
+$(function () {
+	function onRun() {
+		output.empty().append($('<iframe style="width:100%;height:100%"/>').attr('src', 'data:text/html;base64,' + Base64.encode(input.val())))
+	}
+	var runButton = $('<button/>').text('run me').click(onRun)
+	var input = $('<textarea style="font-family:monospace;width:100%;height:100%" />')
+	var output = $('<div style="width:100%;height:100%" />')
+	$('body').append(_.splitVert(2, 1,
+		_.splitHorz(.5, .5, $('<div/>').append(runButton), $('<div/>').text('output')),
+		_.splitHorz(.5, .5, input, output)))
+})
+
+</script>
+</body>
+</html>
