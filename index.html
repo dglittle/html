@@ -1,6 +1,6 @@
 <html>
 <head>
-<title>html</title>
+<title>blah</title>
 <meta name="viewport" content="width=device-width, user-scalable=no">
 <style>
 
@@ -19,22 +19,159 @@ th, td {
 <body>
 <script src="http://code.jquery.com/jquery-2.0.3.min.js"></script>
 <script src="http://dglittle.github.io/gl519/index.js"></script>
-<script src="http://dglittle.github.io/gl519/aes.js"></script>
-<script src="http://dglittle.github.io/gl519/tab.js"></script>
 
-<script src="/utils.js"></script>
+<script src="utils.js"></script>
 <script>
 
+function drawGame(size, state) {
+    c = $('<canvas/>').attr('width', size).attr('height', size)
+    var g = c[0].getContext('2d')
+
+    g.setTransform(size/2, 0, 0, -size/2, size/2, size/2)
+
+    g.beginPath()
+    g.moveTo(0, 1)
+    g.lineTo(0, -1)
+    g.closePath()
+    g.strokeStyle = 'black'
+    g.lineWidth = 2/size
+    g.stroke()
+
+    function drawCircle(pos, r) {
+    	g.beginPath()
+    	g.arc(pos[0], pos[1], r, 0, tau, false)
+    	g.fillStyle = 'lightblue'
+    	g.fill()
+    	// g.lineWidth = 2/size
+    	// g.strokeStyle = 'blue'
+    	// g.stroke()
+    }
+    _.each(state.players, function (p) {
+    	drawCircle(p.pos, p.size)
+    })
+
+    _.each(state.rocks, function (r) {
+    	drawCircle(r.pos, r.size)
+
+    })
+
+    g.fillStyle = 'red'
+    g.fillRect(-1, -1, _.lerp(0, 0, 1000, 2, state.score), .03)
+
+    return c
+}
+
 $(function () {
-	function onRun() {
-		output.empty().append($('<iframe style="width:100%;height:100%"/>').attr('src', 'data:text/html;base64,' + Base64.encode(input.val())))
+	var w = $(document).width()
+	var h = $(document).height()
+	var size = Math.min(w, h)
+
+	function pushRocks(state) {
+		function pushRock() {
+			var spread = .1
+			var prev = state.rocks[state.rocks.length - 2]
+			var r = {
+				pos : [_.lerp(0, prev.pos[0] - spread, 1, prev.pos[0] + spread, Math.random()), prev.pos[1] + .1],
+				size : prev.size,
+				speed : prev.speed
+			}
+			if (r.pos[0] < -1) r.pos[0] = -1
+			if (r.pos[0] > 1) r.pos[0] = 1
+			state.rocks.push(r)
+		}
+		pushRock()
+		pushRock()
 	}
-	var runButton = $('<button/>').text('run me').click(onRun)
-	var input = $('<textarea style="font-family:monospace;width:100%;height:100%" />')
-	var output = $('<div style="width:100%;height:100%" />')
-	$('body').append(_.splitVert(2, 1,
-		_.splitHorz(.5, .5, $('<div/>').append(runButton), $('<div/>').text('output')),
-		_.splitHorz(.5, .5, input, output)))
+
+	function createState() {
+		var state = {
+			score : 0,
+			players : [
+				{
+					pos : [-.5, -1],
+					size : .1,
+					speed : .5
+				},
+				{
+					pos : [.5, -1],
+					size : .1,
+					speed : .5
+				}
+			],
+			rockFreq : .2,
+			rocks : [
+				{
+					pos : [-.5, 1],
+					size : .03,
+					speed : .5
+				},
+				{
+					pos : [.5, 1],
+					size : .03,
+					speed : .5
+				}
+			]
+		}
+		for (var i = 0; i < 20; i++) {
+			pushRocks(state)
+		}
+		return state
+	}
+
+	var state = createState()
+
+	var keys = {}
+	$('body').keydown(function (e) {
+		keys[e.keyCode] = true
+	})
+	$('body').keyup(function (e) {
+		keys[e.keyCode] = false
+	})
+
+	var lastTime = _.time()
+	function gameLoop() {
+		var dt = (_.time() - lastTime) / 1000
+		lastTime = _.time()
+
+		if (keys[68]) {
+			state.players[0].pos[0] = Math.min(state.players[0].pos[0] + state.players[0].speed * dt, 1)
+		}
+		if (keys[65]) {
+			state.players[0].pos[0] = Math.max(state.players[0].pos[0] - state.players[0].speed * dt, -1)
+		}
+
+		if (keys[39]) {
+			state.players[1].pos[0] = Math.min(state.players[1].pos[0] + state.players[1].speed * dt, 1)
+		}
+		if (keys[37]) {
+			state.players[1].pos[0] = Math.max(state.players[1].pos[0] - state.players[1].speed * dt, -1)
+		}
+
+		if (state.rocks[0].pos[1] < -1 - state.rocks[0].size) {
+			state.rocks.splice(0, 2)
+			pushRocks(state)
+		}
+
+		state.rocks = _.filter(state.rocks, function (r) {
+			r.pos[1] -= r.speed * dt
+			if (r.pos[1] < -1 - r.size) {
+				state.score = Math.max(state.score * .666, 0)
+				return false
+			}
+			return !_.any(state.players, function (p) {
+				if (dist(p.pos, r.pos) < p.size + r.size) {
+					state.score += 1
+					return true
+				}
+			})
+		})
+		while (state.rocks[state.rocks.length - 1].pos[1] < 1.5) {
+			pushRocks(state)
+		}
+
+		$('body').empty().append(drawGame(size, state))
+	}
+	setInterval(gameLoop, 1000 / 30)
 })
 
 </script>

@@ -1,47 +1,161 @@
 
-tau = Math.PI * 2
+function createCheckBox(label, check, cb) {
+    var d = $('<span/>')
 
-///
-
-function error(msg) {
-    _.dialog($('<div style="margin:20px"/>').text(msg || 'Oops. Not sure what happened.').append($('<div style="margin-top:20px"/>').text('Please try refreshing the page.')))
-    throw msg
-}
-
-g_rpc_version = $.cookie('rpc_version')
-g_rpc_token = $.cookie('rpc_token')
-g_rpc_timer = null
-g_rpc = []
-
-function rpc(func, arg, cb) {
-    if (typeof(arg) == 'function') return rpc(func, null, arg)
-    g_rpc.push({
-        payload : { func : func, arg : arg },
-        cb : cb
+    var c = $('<input type="checkbox"/>')
+    var id = _.randomString(10, /[a-z]/)
+    c.attr('id', id)
+    c.prop('checked', !!check)
+    c.change(function () {
+        if (cb) cb(c.prop('checked'))
     })
-    if (g_rpc_timer) clearTimeout(g_rpc_timer)
-    g_rpc_timer = setTimeout(function () {
-        g_rpc_timer = null
-        var save_rpc = g_rpc
-        g_rpc = []
-        $.ajax({
-            url : '/rpc/' + g_rpc_version + '/' + g_rpc_token,
-            type : 'post',
-            data : _.json(_.map(save_rpc, function (e) { return e.payload })),
-            success : function (r) {
-                _.each(r, function (r, i) {
-                    if (save_rpc[i].cb)
-                        save_rpc[i].cb(r)
-                })
-            },
-            error : function (s) {
-                error(s.responseText)
-            }
-        })
-    }, 0)
+    d.append(c)
+
+    if (typeof(label) == "string") label = $('<span/>').text(label)
+    d.append($('<label for="' + id + '"/>').append(label))
+
+    return d
 }
 
-///
+var tau = Math.PI * 2
+
+function zeros(n) {
+    var sum = []
+    for (var i = 0; i < n; i++)
+        sum.push(0)
+    return sum
+}
+
+function sum(x) {
+    var sum = 0
+    for (var i = 0; i < x.length; i++)
+        sum += x[i]
+    return sum
+}
+
+function op(x, y, op) {
+    var sum = []
+    var n = (x instanceof Array) ? x.length : y.length
+    for (var i = 0; i < n; i++) {
+        sum.push(op(
+            (x instanceof Array) ? x[i] : x,
+            (y instanceof Array) ? y[i] : y))
+    }
+    return sum
+}
+
+function sub(x, y) {
+    return op(x, y, function (x, y) { return x - y })
+}
+
+function add(x, y) {
+    return op(x, y, function (x, y) { return x + y })
+}
+
+function mul(x, y) {
+    return op(x, y, function (x, y) { return x * y })
+}
+
+function div(x, y) {
+    return op(x, y, function (x, y) { return x / y })
+}
+
+function dot(x, y) {
+    return sum(mul(x, y))
+}
+
+function magSq(x) {
+    return dot(x, x)
+}
+
+function mag(x) {
+    return Math.sqrt(magSq(x))
+}
+
+function dist(x, y) {
+    return mag(sub(x, y))
+}
+
+function norm(x) {
+    return div(x, dist(x))
+}
+
+function comparator(f, desc) {
+    return function (a, b) {
+        if (f) {
+            a = f(a)
+            b = f(b)
+        }
+        if (a < b) return desc ? 1 : -1
+        if (a > b) return desc ? -1 : 1
+        return 0
+    }
+}
+
+function drawShareButtons(message, url, cb) {
+    var d = $('<div/>')
+
+    var shares = [
+        {
+            type : 'facebook',
+            img : 'facebook_grey.png',
+            url : createFacebookShareLink(url, '', message, '')
+        },
+        {
+            type : 'twitter',
+            img : 'twitter_grey.png',
+            url : createTwitterShareLink(message + ' ' + url)
+        },
+        {
+            type : 'google+',
+            img : 'google_plus_grey.png',
+            url : createGooglePlusShareLink(url)
+        }
+    ]
+
+    _.each(shares, function (share, i) {
+        d.append($('<img style="cursor:pointer;' + (i < shares.length - 1 ? 'margin-right:10px' : '') + '"/>').attr('src', share.img).click(function () {
+            cb(share.type)
+            window.open(share.url, 'share url', 'height=400,width=500,resizable=yes')
+        }))
+    })
+
+    return d
+}
+
+function createFacebookShareLink(url, img, title, summary) {
+    return 'http://www.facebook.com/sharer/sharer.php?s=100&p[url]=' + _.escapeUrl(url) + '&p[images][0]=' + _.escapeUrl(img) + '&p[title]=' + _.escapeUrl(title) + '&p[summary]=' + _.escapeUrl(summary)
+}
+
+function createTwitterShareLink(tweet) {
+    return 'http://twitter.com/home?status=' + _.escapeUrl(tweet)
+}
+
+function createGooglePlusShareLink(url) {
+    return 'https://plus.google.com/share?url=' + _.escapeUrl(url)
+}
+
+function splitSizeHelper2(size) {
+    if (size == null) return ""
+    if (size <= 1) return Math.round(100 * size) + '%'
+    return size + 'px'
+}
+
+function splitHorzMedian(aSize, bSize, a, b, median, fill) {
+    if (fill === undefined) fill = true
+    aSize = _.splitSizeHelper('width', aSize)
+    bSize = _.splitSizeHelper('width', bSize)
+    mSize = splitSizeHelper2(median)
+    var t = $('<table ' + (fill ? 'style="width:100%;height:100%"' : '') + '><tr valign="top"><td class="a" ' + aSize + '></td><td width="' + mSize + '"><div style="width:' + mSize + '"/></td><td class="b" ' + bSize + '></td></tr></table>')
+    // don't do this:
+    // t.find('.a').append(a)
+    // t.find('.b').append(b)
+    var _a = t.find('.a')
+    var _b = t.find('.b')
+    _a.append(a)
+    _b.append(b)
+    return t
+}
 
 function grid(rows) {
     var t = []
@@ -138,87 +252,42 @@ jQuery.fn.extend({
         return this.each(function () {
             rotate($(this), amount)
         })
+    },
+    enabled : function (yes) {
+        if (yes === undefined)
+            return !$(this[0]).attr('disabled')
+        return this.each(function () {
+            if (yes) $(this).removeAttr('disabled')
+            else $(this).attr('disabled', 'disabled')
+        })
+    }
+})
+
+jQuery.fn.extend({
+    rotate : function (amount) {
+        return this.each(function () {
+            rotate($(this), amount)
+        })
     }
 })
 
 function createThrobber() {
-    var d = $('<div/>').text('.')
+    var d = $('<span/>')
+    var anim = [
+        '|---',
+        '-|--',
+        '--|-',
+        '---|',
+        '--|-',
+        '-|--'
+    ]
     var start = _.time()
     var i = setInterval(function () {
         if ($.contains(document.documentElement, d[0])) {
-            d.rotate(Math.round((_.time() - start) / 1000 * 360 * 2 % 360))
-        } else
-            clearInterval(i)
+            var t = (_.time() - start) / 1000
+            t *= 3
+            d.text(anim[Math.floor(t % anim.length)])
+        } else clearInterval(i)
     }, 30)
-    return d;
-}
-
-// from : http://stackoverflow.com/questions/3286595/update-textarea-value-but-keep-cursor-position
-
-function getInputSelection(el) {
-    var start = 0, end = 0, normalizedValue, range,
-        textInputRange, len, endRange;
-
-    if (typeof el.selectionStart == "number" && typeof el.selectionEnd == "number") {
-        start = el.selectionStart;
-        end = el.selectionEnd;
-    } else {
-        range = document.selection.createRange();
-
-        if (range && range.parentElement() == el) {
-            len = el.value.length;
-            normalizedValue = el.value.replace(/\r\n/g, "\n");
-
-            // Create a working TextRange that lives only in the input
-            textInputRange = el.createTextRange();
-            textInputRange.moveToBookmark(range.getBookmark());
-
-            // Check if the start and end of the selection are at the very end
-            // of the input, since moveStart/moveEnd doesn't return what we want
-            // in those cases
-            endRange = el.createTextRange();
-            endRange.collapse(false);
-
-            if (textInputRange.compareEndPoints("StartToEnd", endRange) > -1) {
-                start = end = len;
-            } else {
-                start = -textInputRange.moveStart("character", -len);
-                start += normalizedValue.slice(0, start).split("\n").length - 1;
-
-                if (textInputRange.compareEndPoints("EndToEnd", endRange) > -1) {
-                    end = len;
-                } else {
-                    end = -textInputRange.moveEnd("character", -len);
-                    end += normalizedValue.slice(0, end).split("\n").length - 1;
-                }
-            }
-        }
-    }
-
-    return {
-        start: start,
-        end: end
-    };
-}
-
-function offsetToRangeCharacterMove(el, offset) {
-    return offset - (el.value.slice(0, offset).split("\r\n").length - 1);
-}
-
-function setInputSelection(el, startOffset, endOffset) {
-    if (typeof el.selectionStart == "number" && typeof el.selectionEnd == "number") {
-        el.selectionStart = startOffset;
-        el.selectionEnd = endOffset;
-    } else {
-        var range = el.createTextRange();
-        var startCharMove = offsetToRangeCharacterMove(el, startOffset);
-        range.collapse(true);
-        if (startOffset == endOffset) {
-            range.move("character", startCharMove);
-        } else {
-            range.moveEnd("character", offsetToRangeCharacterMove(el, endOffset));
-            range.moveStart("character", startCharMove);
-        }
-        range.select();
-    }
+    return d
 }
